@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini-DAW – Synth Play</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- ========================================================================
+       START OVERLAY – required user gesture before AudioContext
+       ======================================================================== -->
+  <div class="overlay" id="start-overlay" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
+    <div class="overlay__card">
+      <div class="overlay__icon">
+        <i class="fa-solid fa-wave-square"></i>
+      </div>
+      <h2 class="overlay__title" id="overlay-title">Enable Audio</h2>
+      <p class="overlay__text">
+        Browsers require a user gesture before starting audio.
+        Click below to unlock the synthesizer.
+      </p>
+      <button class="overlay__btn" id="start-btn" type="button">
+        <i class="fa-solid fa-play"></i>
+        Start Synth
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       HEADER
+       ======================================================================== -->
+  <section class="section section--header">
+    <div class="container">
+      <header class="header">
+        <div class="row row--between" style="width: 100%;">
+          <!-- Brand -->
+          <div class="header__brand">
+            <div class="header__logo" aria-hidden="true">
+              <i class="fa-solid fa-music"></i>
+            </div>
+            <div>
+              <span class="header__title">Mini-DAW</span>
+              <span class="header__subtitle">Play Mode</span>
+            </div>
+          </div>
+
+          <!-- Audio status indicator -->
+          <div class="header__status">
+            <span class="header__status-dot" id="status-dot" aria-hidden="true"></span>
+            <span id="status-text">Audio locked</span>
+          </div>
+        </div>
+      </header>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       CONTROL PANEL
+       ======================================================================== -->
+  <section class="section section--controls">
+    <div class="container">
+      <div class="controls" id="controls-panel">
+
+        <!-- Waveform -->
+        <div class="controls__group">
+          <div class="controls__group-title">Waveform</div>
+          <div class="waveform" id="waveform-selector" role="group" aria-label="Oscillator waveform">
+            <button type="button" class="waveform__btn waveform__btn--active" data-wave="sine">Sine</button>
+            <button type="button" class="waveform__btn" data-wave="square">Square</button>
+            <button type="button" class="waveform__btn" data-wave="sawtooth">Saw</button>
+            <button type="button" class="waveform__btn" data-wave="triangle">Tri</button>
+          </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="controls__group">
+          <div class="controls__group-title">Filter (Low-pass)</div>
+          <div class="controls__row">
+            <div class="knob" data-param="filterCutoff">
+              <span class="knob__label">Cutoff</span>
+              <div class="knob__control" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70">
+                <div class="knob__indicator"></div>
+              </div>
+              <span class="knob__value">70%</span>
+            </div>
+            <div class="knob" data-param="filterQ">
+              <span class="knob__label">Reso</span>
+              <div class="knob__control" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10">
+                <div class="knob__indicator"></div>
+              </div>
+              <span class="knob__value">10%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- LFO → Filter -->
+        <div class="controls__group">
+          <div class="controls__group-title">LFO → Cutoff</div>
+          <div class="controls__row">
+            <div class="knob" data-param="lfoRate">
+              <span class="knob__label">Rate</span>
+              <div class="knob__control" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="20">
+                <div class="knob__indicator"></div>
+              </div>
+              <span class="knob__value">20%</span>
+            </div>
+            <div class="knob" data-param="lfoDepth">
+              <span class="knob__label">Depth</span>
+              <div class="knob__control" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="knob__indicator"></div>
+              </div>
+              <span class="knob__value">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Envelope ADSR -->
+        <div class="controls__group">
+          <div class="controls__group-title">Envelope</div>
+          <div class="controls__row">
+            <div class="knob" data-param="attack">
+              <span class="knob__label">A</span>
+              <div class="knob__control" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="5">
+                <div class="knob__indicator"></div>
+              </div>
+              <span class="knob__value">5%</span>
+            </div>
+            <div class="knob" data-param="decay">
+              <span class="knob__label">D</span>
+              <div class="knob__control" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="20">
+                <div class="knob__indicator"></div>
+              </div>
+              <span class="knob__value">20%</span>
+            </div>
+            <div class="knob" data-param="sustain">
+              <span class="knob__label">S</span>
+              <div class="knob__control" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70">
+                <div class="knob__indicator"></div>
+              </div>
+              <span class="knob__value">70%</span>
+            </div>
+            <div class="knob" data-param="release">
+              <span class="knob__label">R</span>
+              <div class="knob__control" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="30">
+                <div class="knob__indicator"></div>
+              </div>
+              <span class="knob__value">30%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Octave + Volume + Meter -->
+        <div class="controls__group">
+          <div class="controls__group-title">Global</div>
+          <div class="controls__row">
+            <div class="octave">
+              <button type="button" class="octave__btn" id="octave-down" aria-label="Octave down">
+                <i class="fa-solid fa-minus"></i>
+              </button>
+              <span class="octave__display" id="octave-display">Oct 3–4</span>
+              <button type="button" class="octave__btn" id="octave-up" aria-label="Octave up">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+            </div>
+
+            <div class="knob" data-param="volume">
+              <span class="knob__label">Vol</span>
+              <div class="knob__control" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="70">
+                <div class="knob__indicator"></div>
+              </div>
+              <span class="knob__value">70%</span>
+            </div>
+
+            <div class="meter">
+              <span class="meter__label">Level</span>
+              <div class="meter__track">
+                <div class="meter__fill" id="level-meter-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.controls -->
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       KEYBOARD
+       ======================================================================== -->
+  <section class="section section--keyboard">
+    <div class="container">
+      <div class="keyboard" id="keyboard">
+        <p class="keyboard__hint">
+          Click keys or use computer keyboard · <kbd>Z</kbd>/<kbd>X</kbd> octave
+        </p>
+
+        <!--
+          Keys are generated by keyboard.js.
+          Upper-octave keys receive .keyboard__key--upper and are hidden
+          on portrait / narrow viewports (1 octave). Landscape shows 2.
+        -->
+        <div class="keyboard__keys" id="keyboard-keys">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scripts – order matters -->
+  <script src="js/synth-engine.js"></script>
+  <script src="js/keyboard.js"></script>
+  <script src="js/ui-controls.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
