@@ -199,18 +199,22 @@ const SynthEngine = (function () {
     const voice = activeVoices.get(midiNote);
     if (!voice) return;
 
+    // Remove from map immediately so a second noteOff / panic is a no-op
+    activeVoices.delete(midiNote);
+
     const now = audioCtx.currentTime;
-    const release = immediate ? 0.01 : mapTime(params.release);
+    const release = immediate ? 0.005 : mapTime(params.release);
 
-    // Cancel any scheduled values and ramp to zero
-    voice.gain.gain.cancelScheduledValues(now);
-    voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-    voice.gain.gain.linearRampToValueAtTime(0, now + release);
+    try {
+      voice.gain.gain.cancelScheduledValues(now);
+      voice.gain.gain.setValueAtTime(Math.max(0, voice.gain.gain.value), now);
+      voice.gain.gain.linearRampToValueAtTime(0, now + release);
+      voice.osc.stop(now + release + 0.02);
+    } catch (e) {
+      // Oscillator may already be stopped
+    }
 
-    // Stop oscillator after release
-    voice.osc.stop(now + release + 0.02);
-
-    // Clean up after release finishes
+    // Disconnect after the release ramp finishes
     setTimeout(() => {
       try {
         voice.osc.disconnect();
@@ -219,17 +223,19 @@ const SynthEngine = (function () {
       } catch (e) {
         // already disconnected
       }
-      activeVoices.delete(midiNote);
-    }, (release + 0.05) * 1000);
+    }, (release + 0.08) * 1000);
 
     console.log(`[SynthEngine] noteOff MIDI ${midiNote} release=${release.toFixed(3)}s`);
   }
 
   function allNotesOff() {
-    console.log("[SynthEngine] allNotesOff – releasing", activeVoices.size, "voices");
+    const count = activeVoices.size;
+    console.log("[SynthEngine] allNotesOff – releasing", count, "voices");
     for (const midi of [...activeVoices.keys()]) {
       noteOff(midi, true);
     }
+    // Belt-and-suspenders: clear any stragglers
+    activeVoices.clear();
   }
 
   // ---------------------------------------------------------------------------

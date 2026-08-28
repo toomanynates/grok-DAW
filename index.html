@@ -161,7 +161,7 @@
           </div>
         </div>
 
-        <!-- Octave + Volume + Meter -->
+        <!-- Octave + Volume + Meter + Reset -->
         <div class="controls__group">
           <div class="controls__group-title">Global</div>
           <div class="controls__row">
@@ -189,6 +189,11 @@
                 <div class="meter__fill" id="level-meter-fill"></div>
               </div>
             </div>
+
+            <button type="button" class="reset-btn" id="reset-btn" title="Reset defaults &amp; kill all notes (Esc)">
+              <i class="fa-solid fa-rotate-left"></i>
+              <span>Reset</span>
+            </button>
           </div>
         </div>
 
@@ -203,7 +208,10 @@
     <div class="container">
       <div class="keyboard" id="keyboard">
         <p class="keyboard__hint">
-          Click keys or use computer keyboard · <kbd>Z</kbd>/<kbd>X</kbd> octave
+          Click keys or use computer keyboard ·
+          <kbd>Z</kbd>/<kbd>X</kbd> octave ·
+          <kbd>Esc</kbd> kill all notes ·
+          Reset restores defaults
         </p>
 
         <!--

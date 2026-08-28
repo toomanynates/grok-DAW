@@ -221,6 +221,53 @@ const UIControls = (function () {
   }
 
   /**
+   * Restore every parameter to its default value and update the UI.
+   * Does NOT touch the current octave (caller can reset that separately).
+   */
+  function resetToDefaults() {
+    console.log("[UIControls] resetToDefaults");
+
+    Object.keys(defaults).forEach((name) => {
+      setParam(name, defaults[name]);
+    });
+
+    // Waveform back to sine
+    const waveContainer = document.getElementById("waveform-selector");
+    if (waveContainer) {
+      waveContainer.querySelectorAll(".waveform__btn").forEach((btn) => {
+        const isSine = btn.dataset.wave === "sine";
+        btn.classList.toggle("waveform__btn--active", isSine);
+      });
+      SynthEngine.setWaveform("sine");
+    }
+  }
+
+  function bindResetButton() {
+    const btn = document.getElementById("reset-btn");
+    if (!btn) return;
+
+    btn.addEventListener("click", () => {
+      console.log("[UIControls] Reset button clicked");
+
+      // 1. Kill all sounding notes + clear key highlights
+      KeyboardUI.panic();
+
+      // 2. Restore knob / waveform defaults
+      resetToDefaults();
+
+      // 3. Return to starting octave (3)
+      const current = SynthEngine.getBaseOctave();
+      if (current !== 3) {
+        KeyboardUI.changeOctave(3 - current); // panic is already inside changeOctave
+      } else {
+        KeyboardUI.updateOctaveDisplay();
+      }
+
+      console.log("[UIControls] Reset complete");
+    });
+  }
+
+  /**
    * Public init – call after DOM is ready and SynthEngine exists.
    */
   function init() {
@@ -234,6 +281,7 @@ const UIControls = (function () {
 
     bindWaveformSelector();
     bindOctaveButtons();
+    bindResetButton();
 
     console.log("[UIControls] Initialized with defaults:", values);
   }
@@ -243,6 +291,7 @@ const UIControls = (function () {
     setParam,
     startMeter,
     stopMeter,
+    resetToDefaults,
     getValues: () => ({ ...values })
   };
 })();
