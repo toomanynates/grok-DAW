@@ -2,7 +2,7 @@
 
 A browser-based mini digital audio workstation, built one chunk at a time.
 
-**Current status:** Chunk 1 – Playable synthesizer (Play mode)
+**Current status:** Chunk 1 – Playable synthesizer (Play mode) at https://toomanynates.github.io/grok-DAW/
 
 Live structure and roadmap: see [`MINI-DAW-PLAN.md`](./MINI-DAW-PLAN.md)
 
