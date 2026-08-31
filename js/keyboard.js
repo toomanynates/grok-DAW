@@ -1,45 +1,25 @@
 /**
  * keyboard.js
- * On-screen piano keyboard + computer keyboard mapping.
+ * On-screen piano + computer keyboard → MonoSynthEngine.
  *
- * Builds a continuous 2-octave keyboard (C → C).
- * Upper-octave keys get .keyboard__key--upper and are hidden
- * on portrait / narrow viewports (1 octave visible).
- *
- * Computer mapping (relative to current base octave C):
- *   White: A S D F G H J K
- *   Black: W E   T Y U
- *   Octave: Z (down)  X (up)
- *   Panic:  Escape
+ * Sizes: 1 / 2 / 4 octaves, or full 88 keys.
+ * On narrow viewports, 4 and 88 are disabled with a message.
  */
 
 const KeyboardUI = (function () {
   "use strict";
 
   let keysContainer = null;
+  let scrollEl = null;
+  let sizeMsgEl = null;
 
-  // midi → DOM element
-  const keyElements = new Map();
-
-  // Currently pressed MIDI notes
+  const keyElements = new Map(); // midi → element
   const pressed = new Set();
 
-  // Computer key → semitone offset from C of the base octave
+  // Computer keys → semitone offset from C of current base octave
   const KEY_MAP = {
-    a: 0,  // C
-    s: 2,  // D
-    d: 4,  // E
-    f: 5,  // F
-    g: 7,  // G
-    h: 9,  // A
-    j: 11, // B
-    k: 12, // C (next octave)
-
-    w: 1,  // C#
-    e: 3,  // D#
-    t: 6,  // F#
-    y: 8,  // G#
-    u: 10  // A#
+    a: 0, s: 2, d: 4, f: 5, g: 7, h: 9, j: 11, k: 12,
+    w: 1, e: 3, t: 6, y: 8, u: 10
   };
 
   const LABEL_MAP = {
@@ -48,213 +28,273 @@ const KeyboardUI = (function () {
     10: "U", 11: "J", 12: "K"
   };
 
-  // White-key semitone offsets from C within one octave
-  const WHITE_OFFSETS = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
-
-  // Black keys: semitone from C + index of the white key they sit after
+  const WHITE_OFFSETS = [0, 2, 4, 5, 7, 9, 11];
   const BLACK_DEFS = [
-    { offset: 1, afterWhite: 0 }, // C# after C
-    { offset: 3, afterWhite: 1 }, // D# after D
-    { offset: 6, afterWhite: 3 }, // F# after F
-    { offset: 8, afterWhite: 4 }, // G# after G
-    { offset: 10, afterWhite: 5 } // A# after A
+    { offset: 1, afterWhite: 0 },
+    { offset: 3, afterWhite: 1 },
+    { offset: 6, afterWhite: 3 },
+    { offset: 8, afterWhite: 4 },
+    { offset: 10, afterWhite: 5 }
   ];
 
-  /**
-   * MIDI number of C in a given octave number.
-   * Scientific pitch: C4 = 60, C3 = 48, etc.
-   */
-  function cMidi(octave) {
-    return octave * 12 + 12;
+  // State
+  let baseOctave = 3;       // C3 for 1/2/4 octave modes
+  let octaveCount = 2;      // 1 | 2 | 4 | 88
+  let activeNoteName = "—";
+
+  const SMALL_MAX_WIDTH = 720; // below this, 4 & 88 blocked
+
+  function cMidi(oct) {
+    return oct * 12 + 12; // C3 = 48
+  }
+
+  function isSmallScreen() {
+    return window.matchMedia(`(max-width: ${SMALL_MAX_WIDTH}px), (orientation: portrait)`).matches;
   }
 
   /**
-   * Build the full 2-octave keyboard (15 white keys: C..C, 10 black keys).
-   * Upper-octave keys receive .keyboard__key--upper for responsive hiding.
+   * Range of MIDI notes to render for current size.
    */
+  function noteRange() {
+    if (octaveCount === 88) {
+      // A0 (21) .. C8 (108)
+      return { start: 21, end: 108 };
+    }
+    const start = cMidi(baseOctave);
+    const end = start + octaveCount * 12; // inclusive top C
+    return { start, end };
+  }
+
   function rebuild() {
     if (!keysContainer) return;
-
     keyElements.clear();
     keysContainer.innerHTML = "";
 
-    const baseOctave = SynthEngine.getBaseOctave();
-    const baseMidi = cMidi(baseOctave); // leftmost C
-
-    // ----- White keys: 15 keys covering C → C across two octaves -----
-    // Indices 0–6  = base octave C..B
-    // Indices 7–13 = next octave C..B
-    // Index 14     = final C (two octaves above base)
+    const { start, end } = noteRange();
     const whiteEls = [];
-    const totalWhite = 15;
 
-    for (let i = 0; i < totalWhite; i++) {
-      let midi;
-      if (i === 14) {
-        midi = baseMidi + 24; // top C
-      } else {
-        const oct = Math.floor(i / 7);       // 0 or 1
-        const whiteInOct = i % 7;            // 0..6
-        midi = baseMidi + oct * 12 + WHITE_OFFSETS[whiteInOct];
-      }
+    // Collect white-key midis in range
+    const whiteMidis = [];
+    for (let m = start; m <= end; m++) {
+      const pc = m % 12;
+      if (WHITE_OFFSETS.includes(pc)) whiteMidis.push(m);
+    }
 
+    whiteMidis.forEach((midi, i) => {
       const el = document.createElement("div");
       el.className = "keyboard__key keyboard__key--white";
-      if (i >= 7) {
-        el.classList.add("keyboard__key--upper");
-      }
       el.dataset.midi = String(midi);
 
       const label = document.createElement("span");
       label.className = "keyboard__key-label";
-      if (i < 7) {
-        const semi = WHITE_OFFSETS[i];
-        if (LABEL_MAP[semi] !== undefined) {
-          label.textContent = LABEL_MAP[semi];
+      // Label computer keys only for first octave of non-88 mode
+      if (octaveCount !== 88) {
+        const offsetFromBase = midi - cMidi(baseOctave);
+        if (offsetFromBase >= 0 && offsetFromBase <= 12 && LABEL_MAP[offsetFromBase] !== undefined) {
+          label.textContent = LABEL_MAP[offsetFromBase];
         }
-      } else if (i === 7) {
-        label.textContent = "K"; // computer key for the C one octave up
+      } else if (midi % 12 === 0) {
+        // Show C octave numbers on 88-key
+        label.textContent = "C" + Math.floor(midi / 12 - 1);
       }
       el.appendChild(label);
 
       keysContainer.appendChild(el);
-      whiteEls.push(el);
+      whiteEls.push({ el, midi });
       keyElements.set(midi, el);
-    }
-
-    // ----- Black keys (positioned from real white-key geometry) -----
-    requestAnimationFrame(() => {
-      positionBlackKeys(whiteEls, baseMidi);
-      console.log(
-        "[KeyboardUI] Rebuilt. baseOctave =",
-        baseOctave,
-        "leftmost MIDI =",
-        baseMidi,
-        "(C)  keys =",
-        keyElements.size
-      );
     });
+
+    requestAnimationFrame(() => positionBlackKeys(whiteEls, start, end));
+    updateOctaveDisplay();
+    console.log("[KeyboardUI] rebuild size=", octaveCount, "range", start, "–", end, "whites", whiteEls.length);
   }
 
-  /**
-   * Place black keys using each white key's actual offsetLeft / width.
-   * This stays correct even when the flex row is centered.
-   */
-  function positionBlackKeys(whiteEls, baseMidi) {
-    if (!whiteEls.length) return;
+  function positionBlackKeys(whiteEls, start, end) {
+    if (!whiteEls.length || !keysContainer) return;
 
     const containerRect = keysContainer.getBoundingClientRect();
     if (containerRect.width === 0) return;
 
-    // Remove any previous black keys (in case of rapid rebuilds)
-    keysContainer.querySelectorAll(".keyboard__key--black").forEach((el) => {
-      const m = parseInt(el.dataset.midi, 10);
-      keyElements.delete(m);
-      el.remove();
-    });
+    // Index whites by midi for lookup
+    const whiteByMidi = new Map(whiteEls.map((w) => [w.midi, w.el]));
 
-    for (let oct = 0; oct < 2; oct++) {
-      BLACK_DEFS.forEach(({ offset, afterWhite }) => {
-        const whiteIndex = oct * 7 + afterWhite;
-        const whiteEl = whiteEls[whiteIndex];
-        if (!whiteEl) return;
+    for (let midi = start; midi <= end; midi++) {
+      const pc = midi % 12;
+      const blackDef = BLACK_DEFS.find((b) => b.offset === pc);
+      if (!blackDef) continue;
 
-        // Skip upper black keys if that white key is hidden (portrait)
-        if (oct === 1 && whiteEl.classList.contains("keyboard__key--upper")) {
-          const style = window.getComputedStyle(whiteEl);
-          if (style.display === "none") return;
-        }
+      // Previous white key (black keys sit on the boundary after a white key)
+      let prevWhite = midi - 1;
+      while (prevWhite >= start && !whiteByMidi.has(prevWhite)) prevWhite--;
+      const whiteEl = whiteByMidi.get(prevWhite);
+      if (!whiteEl) continue;
 
-        const midi = baseMidi + oct * 12 + offset;
-        const el = document.createElement("div");
-        el.className = "keyboard__key keyboard__key--black";
-        if (oct === 1) {
-          el.classList.add("keyboard__key--upper");
-        }
-        el.dataset.midi = String(midi);
+      const el = document.createElement("div");
+      el.className = "keyboard__key keyboard__key--black";
+      el.dataset.midi = String(midi);
 
-        const whiteRect = whiteEl.getBoundingClientRect();
-        const whiteWidth = whiteRect.width;
-        const blackWidth = Math.min(40, whiteWidth * 0.62);
+      const whiteRect = whiteEl.getBoundingClientRect();
+      const whiteWidth = whiteRect.width;
+      const blackWidth = Math.min(36, whiteWidth * 0.6);
+      const left = whiteRect.left - containerRect.left + whiteWidth - blackWidth / 2;
 
-        // Center the black key on the right edge of this white key
-        // (i.e. on the boundary between this white key and the next)
-        const leftInContainer =
-          whiteRect.left - containerRect.left + whiteWidth - blackWidth / 2;
+      el.style.left = `${left}px`;
+      el.style.width = `${blackWidth}px`;
 
-        el.style.left = `${leftInContainer}px`;
-        el.style.width = `${blackWidth}px`;
+      const label = document.createElement("span");
+      label.className = "keyboard__key-label";
+      if (octaveCount !== 88) {
+        const offsetFromBase = midi - cMidi(baseOctave);
+        if (LABEL_MAP[offsetFromBase]) label.textContent = LABEL_MAP[offsetFromBase];
+      }
+      el.appendChild(label);
 
-        const label = document.createElement("span");
-        label.className = "keyboard__key-label";
-        if (oct === 0 && LABEL_MAP[offset]) {
-          label.textContent = LABEL_MAP[offset];
-        }
-        el.appendChild(label);
-
-        keysContainer.appendChild(el);
-        keyElements.set(midi, el);
-      });
+      keysContainer.appendChild(el);
+      keyElements.set(midi, el);
     }
   }
 
+  // ----- Note press / release (monophonic with optional portamento) -----
   function press(midi) {
     if (pressed.has(midi)) return;
+
+    // Clear visual state on any previously held keys (mono = one at a time)
+    pressed.forEach((m) => {
+      const el = keyElements.get(m);
+      if (el) el.classList.remove("keyboard__key--pressed");
+    });
+    pressed.clear();
     pressed.add(midi);
 
     const el = keyElements.get(midi);
     if (el) el.classList.add("keyboard__key--pressed");
 
-    SynthEngine.noteOn(midi);
+    // triggerAttack while already sounding enables portamento glide
+    const name = MonoSynthEngine.noteOn(midi);
+    activeNoteName = name || Tone.Frequency(midi, "midi").toNote();
+    updateActiveNoteDisplay();
   }
 
   function release(midi) {
     if (!pressed.has(midi)) return;
     pressed.delete(midi);
-
     const el = keyElements.get(midi);
     if (el) el.classList.remove("keyboard__key--pressed");
 
-    SynthEngine.noteOff(midi);
+    // Release only when the last held key lifts
+    if (pressed.size === 0) {
+      MonoSynthEngine.noteOff();
+      activeNoteName = "—";
+      updateActiveNoteDisplay();
+    }
   }
 
-  function bindPointerEvents() {
+  function panic() {
+    console.log("[KeyboardUI] panic");
+    pressed.forEach((midi) => {
+      const el = keyElements.get(midi);
+      if (el) el.classList.remove("keyboard__key--pressed");
+    });
+    pressed.clear();
+    MonoSynthEngine.allNotesOff();
+    activeNoteName = "—";
+    updateActiveNoteDisplay();
+  }
+
+  function updateActiveNoteDisplay() {
+    const el = document.getElementById("active-note-value");
+    if (el) el.textContent = activeNoteName;
+  }
+
+  function updateOctaveDisplay() {
+    const el = document.getElementById("octave-display");
+    if (!el) return;
+    if (octaveCount === 88) {
+      el.textContent = "A0–C8";
+    } else {
+      el.textContent = `Oct ${baseOctave}–${baseOctave + octaveCount - 1}`;
+    }
+  }
+
+  // ----- Size selector -----
+  function setOctaveCount(n) {
+    n = Number(n);
+    if (![1, 2, 4, 88].includes(n)) return;
+
+    if ((n === 4 || n === 88) && isSmallScreen()) {
+      showSizeMessage(true);
+      console.log("[KeyboardUI] size", n, "blocked on small screen");
+      return;
+    }
+    showSizeMessage(false);
+
+    octaveCount = n;
+    document.querySelectorAll(".kb-size__btn").forEach((btn) => {
+      btn.classList.toggle("kb-size__btn--active", Number(btn.dataset.octaves) === n);
+    });
+
+    panic();
+    rebuild();
+  }
+
+  function showSizeMessage(visible) {
+    if (!sizeMsgEl) return;
+    sizeMsgEl.classList.toggle("kb-size__msg--visible", visible);
+  }
+
+  function updateSizeButtonStates() {
+    const small = isSmallScreen();
+    document.querySelectorAll(".kb-size__btn").forEach((btn) => {
+      const n = Number(btn.dataset.octaves);
+      const blocked = small && (n === 4 || n === 88);
+      btn.classList.toggle("kb-size__btn--disabled", blocked);
+      btn.disabled = blocked;
+    });
+    // If current size became invalid, fall back to 2
+    if (small && (octaveCount === 4 || octaveCount === 88)) {
+      setOctaveCount(2);
+    }
+  }
+
+  function changeOctave(delta) {
+    if (octaveCount === 88) return; // fixed range
+    const next = Math.max(0, Math.min(6, baseOctave + delta));
+    if (next === baseOctave) return;
+    panic();
+    baseOctave = next;
+    rebuild();
+  }
+
+  // ----- Events -----
+  function bindPointer() {
     keysContainer.addEventListener("pointerdown", (e) => {
       const keyEl = e.target.closest(".keyboard__key");
       if (!keyEl) return;
       e.preventDefault();
-      const midi = parseInt(keyEl.dataset.midi, 10);
       keyEl.setPointerCapture(e.pointerId);
-      press(midi);
+      press(parseInt(keyEl.dataset.midi, 10));
     });
-
     keysContainer.addEventListener("pointerup", (e) => {
       const keyEl = e.target.closest(".keyboard__key");
       if (!keyEl) return;
-      const midi = parseInt(keyEl.dataset.midi, 10);
-      release(midi);
+      release(parseInt(keyEl.dataset.midi, 10));
     });
-
     keysContainer.addEventListener("pointercancel", (e) => {
       const keyEl = e.target.closest(".keyboard__key");
       if (!keyEl) return;
-      const midi = parseInt(keyEl.dataset.midi, 10);
-      release(midi);
+      release(parseInt(keyEl.dataset.midi, 10));
     });
   }
 
-  function bindComputerKeyboard() {
+  function bindComputerKeys() {
     window.addEventListener("keydown", (e) => {
       if (e.repeat) return;
-
       if (e.key === "Escape") {
         e.preventDefault();
         panic();
         return;
       }
-
       const key = e.key.toLowerCase();
-
       if (key === "z") {
         e.preventDefault();
         changeOctave(-1);
@@ -265,89 +305,65 @@ const KeyboardUI = (function () {
         changeOctave(1);
         return;
       }
-
       if (KEY_MAP[key] === undefined) return;
       e.preventDefault();
-
-      const midi = cMidi(SynthEngine.getBaseOctave()) + KEY_MAP[key];
+      const midi = cMidi(baseOctave) + KEY_MAP[key];
       press(midi);
     });
 
     window.addEventListener("keyup", (e) => {
       const key = e.key.toLowerCase();
       if (KEY_MAP[key] === undefined) return;
-
-      const midi = cMidi(SynthEngine.getBaseOctave()) + KEY_MAP[key];
+      const midi = cMidi(baseOctave) + KEY_MAP[key];
       release(midi);
     });
 
-    // Safety net: losing focus releases everything
-    window.addEventListener("blur", () => {
-      panic();
+    window.addEventListener("blur", () => panic());
+  }
+
+  function bindSizeSelector() {
+    const group = document.getElementById("kb-size");
+    if (!group) return;
+    group.addEventListener("click", (e) => {
+      const btn = e.target.closest(".kb-size__btn");
+      if (!btn || btn.disabled) return;
+      setOctaveCount(btn.dataset.octaves);
     });
-  }
-
-  /**
-   * Immediately silence every voice and clear visual pressed state.
-   */
-  function panic() {
-    console.log("[KeyboardUI] panic – killing all notes");
-    pressed.forEach((midi) => {
-      const el = keyElements.get(midi);
-      if (el) el.classList.remove("keyboard__key--pressed");
-    });
-    pressed.clear();
-    SynthEngine.allNotesOff();
-  }
-
-  function changeOctave(delta) {
-    const current = SynthEngine.getBaseOctave();
-    const next = Math.max(0, Math.min(6, current + delta));
-    if (next === current) return;
-
-    panic();
-    SynthEngine.setBaseOctave(next);
-    rebuild();
-    updateOctaveDisplay();
-  }
-
-  function updateOctaveDisplay() {
-    const el = document.getElementById("octave-display");
-    if (!el) return;
-    const base = SynthEngine.getBaseOctave();
-    el.textContent = `Oct ${base}–${base + 1}`;
   }
 
   function init() {
     keysContainer = document.getElementById("keyboard-keys");
+    scrollEl = document.querySelector(".keyboard__scroll");
+    sizeMsgEl = document.getElementById("kb-size-msg");
+
     if (!keysContainer) {
-      console.error("[KeyboardUI] #keyboard-keys not found");
+      console.error("[KeyboardUI] #keyboard-keys missing");
       return;
     }
 
     rebuild();
-    bindPointerEvents();
-    bindComputerKeyboard();
-    updateOctaveDisplay();
+    bindPointer();
+    bindComputerKeys();
+    bindSizeSelector();
+    updateSizeButtonStates();
 
     let resizeTimer;
     window.addEventListener("resize", () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        console.log("[KeyboardUI] Resize – rebuilding layout");
+        updateSizeButtonStates();
         rebuild();
       }, 120);
     });
 
-    console.log("[KeyboardUI] Initialized");
+    console.log("[KeyboardUI] initialized");
   }
 
   return {
     init,
+    panic,
     changeOctave,
-    updateOctaveDisplay,
-    press,
-    release,
-    panic
+    setOctaveCount,
+    getActiveNote: () => activeNoteName
   };
 })();

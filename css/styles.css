@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Mini-DAW – Chunk 1: Playable Synth
+   Mini-DAW v2 – Tone.js MonoSynth UI
    Centralized stylesheet – BEM methodology
    ========================================================================== */
 
@@ -24,15 +24,18 @@
   --color-accent-dim:     #3d6bc7;
   --color-accent-glow:    rgba(91, 141, 239, 0.35);
 
-  --color-key-white:      #e8eaef;
-  --color-key-white-active: #5b8def;
-  --color-key-black:      #1a1d28;
-  --color-key-black-active: #3d6bc7;
-  --color-key-border:     #2a2e3d;
-
   --color-success:        #34d399;
   --color-warning:        #fbbf24;
   --color-danger:         #f87171;
+
+  /* Piano keys */
+  --key-white-bg:         #e8eaef;
+  --key-white-active:     #5b8def;
+  --key-black-bg:         #1a1d28;
+  --key-black-active:     #3d6bc7;
+  --key-border:           #2a2e3d;
+  --key-border-radius:    0 0 6px 6px;
+  --key-shadow:           inset 0 2px 6px rgba(0, 0, 0, 0.25);
 
   /* Typography */
   --font-sans:            "Inter", system-ui, -apple-system, sans-serif;
@@ -45,7 +48,7 @@
   --text-xl:              1.25rem;
   --text-2xl:             1.5rem;
 
-  /* Spacing scale */
+  /* Spacing */
   --space-1:              0.25rem;
   --space-2:              0.5rem;
   --space-3:              0.75rem;
@@ -63,7 +66,7 @@
   --radius-xl:            16px;
   --radius-full:          9999px;
 
-  /* Shadows / glows */
+  /* Shadows */
   --shadow-sm:            0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md:            0 4px 12px rgba(0, 0, 0, 0.45);
   --shadow-glow:          0 0 20px var(--color-accent-glow);
@@ -71,6 +74,10 @@
   /* Transitions */
   --transition-fast:      120ms ease;
   --transition-base:      200ms ease;
+
+  /* Control sizes */
+  --knob-size:            56px;
+  --knob-size-sm:         44px;
 
   /* Layout */
   --container-max:        1100px;
@@ -121,7 +128,7 @@ select:focus-visible {
 }
 
 /* --------------------------------------------------------------------------
-   3. LAYOUT PRIMITIVES (section → container → row)
+   3. LAYOUT – section → container → row
    -------------------------------------------------------------------------- */
 .section {
   width: 100%;
@@ -168,12 +175,8 @@ select:focus-visible {
   justify-content: center;
 }
 
-.row--end {
-  justify-content: flex-end;
-}
-
 /* --------------------------------------------------------------------------
-   4. HEADER / BRAND
+   4. HEADER
    -------------------------------------------------------------------------- */
 .header {
   height: var(--header-height);
@@ -234,11 +237,11 @@ select:focus-visible {
 }
 
 /* --------------------------------------------------------------------------
-   5. CONTROL PANEL
+   5. CONTROL PANEL GRID
    -------------------------------------------------------------------------- */
 .controls {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-5);
   background-color: var(--color-bg-surface);
   border: 1px solid var(--color-border);
@@ -267,18 +270,18 @@ select:focus-visible {
   align-items: flex-end;
 }
 
-/* Waveform selector */
-.waveform {
+.select-group {
   display: flex;
   gap: var(--space-1);
   background-color: var(--color-bg-elevated);
   border-radius: var(--radius-md);
   padding: var(--space-1);
+  flex-wrap: wrap;
 }
 
-.waveform__btn {
+.select-group__btn {
   flex: 1;
-  min-width: 52px;
+  min-width: 48px;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   font-size: var(--text-xs);
@@ -287,77 +290,55 @@ select:focus-visible {
   transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
-.waveform__btn:hover {
+.select-group__btn:hover {
   color: var(--color-text-primary);
   background-color: var(--color-bg-hover);
 }
 
-.waveform__btn--active {
+.select-group__btn--active {
   background-color: var(--color-accent);
   color: white;
 }
 
-.waveform__btn--active:hover {
+.select-group__btn--active:hover {
   background-color: var(--color-accent-dim);
   color: white;
 }
 
-/* Knobs */
+.control-select {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+
+/* --------------------------------------------------------------------------
+   6. SVG KNOB
+   -------------------------------------------------------------------------- */
 .knob {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
   min-width: 64px;
+  user-select: none;
 }
 
 .knob__label {
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
   text-align: center;
-  user-select: none;
 }
 
-.knob__control {
-  position: relative;
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-full);
-  background: conic-gradient(
-    from 0deg,
-    var(--color-border) 0deg,
-    var(--color-border) 360deg
-  );
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.knob__svg {
+  width: var(--knob-size);
+  height: var(--knob-size);
   cursor: ns-resize;
   touch-action: none;
-  box-shadow: var(--shadow-sm);
-}
-
-.knob__control::before {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border-radius: var(--radius-full);
-  background-color: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-}
-
-.knob__indicator {
-  position: absolute;
-  width: 3px;
-  height: 14px;
-  background-color: var(--color-accent);
-  border-radius: var(--radius-full);
-  top: 6px;
-  left: 50%;
-  transform-origin: bottom center;
-  transform: translateX(-50%) rotate(0deg);
-  z-index: 1;
-  pointer-events: none;
-  box-shadow: 0 0 6px var(--color-accent-glow);
+  display: block;
 }
 
 .knob__value {
@@ -365,42 +346,12 @@ select:focus-visible {
   font-family: var(--font-mono);
   color: var(--color-text-muted);
   min-height: 1.2em;
-}
-
-/* Octave controls */
-.octave {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.octave__btn {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.octave__btn:hover {
-  background-color: var(--color-bg-hover);
-  border-color: var(--color-accent);
-}
-
-.octave__display {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  min-width: 48px;
   text-align: center;
-  color: var(--color-text-secondary);
 }
 
-/* Level meter */
+/* --------------------------------------------------------------------------
+   7. METER / NOTE DISPLAY / RESET
+   -------------------------------------------------------------------------- */
 .meter {
   display: flex;
   flex-direction: column;
@@ -429,7 +380,30 @@ select:focus-visible {
   transition: width 50ms linear;
 }
 
-/* Reset button – kills all notes + restores defaults */
+.note-display {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 72px;
+}
+
+.note-display__label {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.note-display__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-accent);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  text-align: center;
+  min-height: 2rem;
+}
+
 .reset-btn {
   display: inline-flex;
   align-items: center;
@@ -455,7 +429,58 @@ select:focus-visible {
 }
 
 /* --------------------------------------------------------------------------
-   6. KEYBOARD
+   8. KEYBOARD SIZE SELECTOR
+   -------------------------------------------------------------------------- */
+.kb-size {
+  display: flex;
+  gap: var(--space-1);
+  background-color: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.kb-size__btn {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.kb-size__btn:hover:not(.kb-size__btn--disabled) {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-hover);
+}
+
+.kb-size__btn--active {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.kb-size__btn--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.kb-size__msg {
+  width: 100%;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--color-warning);
+  margin-top: var(--space-2);
+  display: none;
+}
+
+.kb-size__msg--visible {
+  display: block;
+}
+
+/* --------------------------------------------------------------------------
+   9. PIANO KEYBOARD
    -------------------------------------------------------------------------- */
 .keyboard {
   position: relative;
@@ -468,33 +493,36 @@ select:focus-visible {
   text-align: center;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.keyboard__scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .keyboard__keys {
-  position: relative; /* positioning context for absolute black keys */
+  position: relative;
   display: flex;
-  justify-content: center;
   height: 180px;
-  max-width: 100%;
-  /* prevent black keys from overflowing the rounded corners */
-  overflow: hidden;
+  margin: 0 auto;
 }
 
-/* White keys */
 .keyboard__key {
   position: relative;
-  border: 1px solid var(--color-key-border);
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border: 1px solid var(--key-border);
+  border-radius: var(--key-border-radius);
   transition: background-color var(--transition-fast), transform var(--transition-fast);
   cursor: pointer;
 }
 
 .keyboard__key--white {
-  flex: 1 1 0;
-  max-width: 64px;
+  flex: 0 0 auto;
+  width: 48px;
   height: 100%;
-  background-color: var(--color-key-white);
+  background-color: var(--key-white-bg);
   z-index: 1;
   display: flex;
   flex-direction: column;
@@ -503,19 +531,17 @@ select:focus-visible {
   padding-bottom: var(--space-3);
 }
 
-.keyboard__key--white.keyboard__key--pressed,
-.keyboard__key--white.keyboard__key--active {
-  background-color: var(--color-key-white-active);
+.keyboard__key--white.keyboard__key--pressed {
+  background-color: var(--key-white-active);
   transform: translateY(2px);
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--key-shadow);
 }
 
-/* Black keys */
 .keyboard__key--black {
   position: absolute;
-  width: 38px;
+  width: 30px;
   height: 58%;
-  background-color: var(--color-key-black);
+  background-color: var(--key-black-bg);
   border: 1px solid #0d0f14;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   z-index: 2;
@@ -527,9 +553,8 @@ select:focus-visible {
   padding-bottom: var(--space-2);
 }
 
-.keyboard__key--black.keyboard__key--pressed,
-.keyboard__key--black.keyboard__key--active {
-  background-color: var(--color-key-black-active);
+.keyboard__key--black.keyboard__key--pressed {
+  background-color: var(--key-black-active);
   transform: translateY(2px);
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
 }
@@ -537,7 +562,6 @@ select:focus-visible {
 .keyboard__key-label {
   font-size: 10px;
   font-weight: 500;
-  color: var(--color-text-muted);
   pointer-events: none;
   opacity: 0.7;
 }
@@ -550,13 +574,12 @@ select:focus-visible {
   color: var(--color-text-secondary);
 }
 
-.keyboard__key--pressed .keyboard__key-label,
-.keyboard__key--active .keyboard__key-label {
+.keyboard__key--pressed .keyboard__key-label {
   color: rgba(255, 255, 255, 0.9);
 }
 
 /* --------------------------------------------------------------------------
-   7. START OVERLAY (gesture unlock)
+   10. START OVERLAY
    -------------------------------------------------------------------------- */
 .overlay {
   position: fixed;
@@ -621,41 +644,23 @@ select:focus-visible {
 }
 
 /* --------------------------------------------------------------------------
-   8. RESPONSIVE – Keyboard octave count
-   Vertical / narrow → 1 octave (hide .keyboard__key--upper)
-   Horizontal / wider → 2 octaves
+   11. RESPONSIVE
    -------------------------------------------------------------------------- */
-
-/* Default (mobile / portrait): hide upper octave keys */
-.keyboard__key--upper {
-  display: none;
-}
-
-@media (min-width: 721px) and (orientation: landscape) {
-  .keyboard__key--upper {
-    display: flex; /* white keys are flex children */
-  }
-
-  .keyboard__key--upper.keyboard__key--black {
-    display: block; /* black keys are absolutely positioned */
-  }
-
+@media (max-width: 720px) {
   .keyboard__keys {
-    height: 200px;
+    height: 150px;
   }
-}
 
-@media (max-width: 720px), (orientation: portrait) {
-  .keyboard__keys {
-    height: 160px;
+  .keyboard__key--white {
+    width: 36px;
   }
 
   .keyboard__key--black {
-    width: 32px;
+    width: 22px;
   }
 
   .controls {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: var(--space-4);
     padding: var(--space-4);
   }
@@ -663,10 +668,14 @@ select:focus-visible {
   .header__subtitle {
     display: none;
   }
+
+  :root {
+    --knob-size: 48px;
+  }
 }
 
 /* --------------------------------------------------------------------------
-   9. MISC / HELPERS
+   12. HELPERS
    -------------------------------------------------------------------------- */
 .sr-only {
   position: absolute;
