@@ -2,7 +2,9 @@
 
 Browser-based mini DAW. **Play mode** is a Tone.js **MonoSynth** with a modular, token-driven UI.
 
-Repo: [toomanynates/grok-DAW](https://github.com/toomanynates/grok-DAW)
+**Current status:** Chunk 1 – Playable synthesizer (Play mode) at https://toomanynates.github.io/grok-DAW/
+
+Live structure and roadmap: see [`MINI-DAW-PLAN.md`](./MINI-DAW-PLAN.md)
 
 ---
 
