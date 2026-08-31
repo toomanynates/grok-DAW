@@ -1,6 +1,6 @@
 # Mini-DAW
 
-A browser-based mini digital audio workstation, built one chunk at a time.
+Browser-based mini DAW. **Play mode** is a Tone.js **MonoSynth** with a modular, token-driven UI.
 
 **Current status:** Chunk 1 – Playable synthesizer (Play mode) at https://toomanynates.github.io/grok-DAW/
 
@@ -11,38 +11,31 @@ Live structure and roadmap: see [`MINI-DAW-PLAN.md`](./MINI-DAW-PLAN.md)
 ## Try it
 
 1. Clone or download this repo
-2. Open `index.html` in a modern browser (Chrome, Firefox, Edge, or Safari)
-3. Click **Start Synth** (browsers require a user gesture before audio can start)
+2. Open `index.html` in Chrome, Firefox, Edge, or Safari
+   (or serve the folder: `npx serve .`)
+3. Click **Start Synth**
 4. Play
 
-> **Tip:** For the best experience serve the folder over HTTP  
-> (e.g. `npx serve .` or VS Code Live Server). Opening via `file://` works in most desktop browsers but can be restricted on mobile.
-
-### GitHub Pages
-
-If Pages is enabled on this repo the synth is also available at:
-
-`https://toomanynates.github.io/grok-DAW/`
+GitHub Pages (if enabled): `https://toomanynates.github.io/grok-DAW/`
 
 ---
 
-## Features (Chunk 1)
+## Features (Play mode v2)
 
 | Feature | Details |
 |---------|---------|
-| On-screen keyboard | Responsive: **1 octave** in portrait / narrow view, **2 octaves** in landscape |
-| Computer keyboard | `A S D F G H J K` (white) · `W E T Y U` (black) · `Z` / `X` octave |
-| Waveforms | Sine, Square, Sawtooth, Triangle |
-| Filter | Low-pass with Cutoff + Resonance |
-| LFO | Sine LFO modulating filter cutoff (Rate + Depth) |
-| Envelope | ADSR (Attack, Decay, Sustain, Release) |
-| Global | Octave shift, Volume, Level meter |
-| Panic / Reset | **Esc** or **Reset** button kills all notes; Reset also restores defaults |
-| Audio unlock | Starts only after an explicit user gesture |
+| Engine | **Tone.js** `MonoSynth` (CDN) |
+| Oscillator | Sine / Square / Saw / Triangle |
+| Filter | Low-pass cutoff + resonance |
+| Amp envelope | ADSR |
+| Filter envelope | ADSR + base frequency + octaves |
+| Global | Volume (dB), Portamento, Active note, Level meter, Reset |
+| Keyboard | 1 / 2 / 4 octaves or full **88 keys** |
+| Input | On-screen keys + computer keyboard |
+| Panic | **Esc** or **Reset** kills notes; Reset also restores defaults |
+| Mobile | 4-octave and 88-key modes show "unavailable" on small screens |
 
----
-
-## Keyboard map
+### Computer keyboard
 
 ```
   W   E     T   Y   U
@@ -50,36 +43,28 @@ A   S   D  F   G   H   J   K
 C  C#  D  D# E  F  F# G  G# A  A# B  C
 ```
 
-| Key | Action |
-|-----|--------|
-| `Z` | Octave down |
-| `X` | Octave up |
-| `Esc` | Kill all sounding notes (panic) |
-| Reset button | Panic + restore every control to its default |
+`Z` / `X` = octave down / up · `Esc` = panic
 
 ---
 
-## Project structure
+## Architecture
 
 ```
-├── index.html          # Semantic layout (section → container → row)
-├── css/
-│   └── styles.css      # Single stylesheet – :root tokens + BEM
-├── js/
-│   ├── main.js         # Entry point, gesture unlock, status
-│   ├── synth-engine.js # Web Audio graph (osc, filter, LFO, ADSR, meter)
-│   ├── keyboard.js     # On-screen + computer keyboard
-│   └── ui-controls.js  # Knobs, waveform selector, reset, meter
-├── MINI-DAW-PLAN.md    # Full product plan & chunk roadmap
-└── README.md
+index.html                 # section → container → row layout
+css/styles.css             # :root tokens + BEM
+js/
+  bind.js                  # Reusable UI → parameter binding (SVG knobs, selects)
+  mono-synth.js            # Tone.MonoSynth wrapper
+  keyboard.js              # Piano + computer keys + size selector
+  controls.js              # Panel builders (use Bind + MonoSynthEngine)
+  main.js                  # Boot, gesture unlock (Tone.start)
 ```
 
-### Coding conventions
-
-- **CSS:** centralized file, `:root` design tokens, strict BEM
-- **HTML:** clear `section` → `.container` → `.row` hierarchy
-- **JS:** comments + `console.log`s for debugging and assumption checks
-- **Audio:** native Web Audio API only (no Tone.js in Chunk 1)
+**Design rules**
+- All controls use CSS tokens (no hard-coded colors/sizes in components)
+- BEM class names
+- One shared **Bind** layer so future synths (FM / AM) don't reimplement knobs
+- Audio starts only after a user gesture
 
 ---
 
@@ -87,25 +72,19 @@ C  C#  D  D# E  F  F# G  G# A  A# B  C
 
 | Chunk | Focus |
 |-------|--------|
-| **1** | Playable synth (current) |
+| **1** | Playable MonoSynth (current) |
 | **2** | Record notes into a clip |
-| **3** | Piano-roll note editor |
-| **4** | Multitrack + shared transport |
-| **5** | Project save / load (JSON + IndexedDB) |
-| **6** | Multitrack MIDI export |
-| **7** | AI Compose (LLM → MIDI loops, user API key) |
+| **3** | Piano-roll editor |
+| **4** | Multitrack + Tone Transport |
+| **5** | Project save / load |
+| **6** | MIDI export |
+| **7** | AI Compose (LLM → MIDI) |
 | **8+** | More instruments, effects, polish |
 
----
-
-## Development notes
-
-- Stuck notes: press **Esc** or click **Reset**. The engine also releases all voices when the window loses focus.
-- Knobs: click and drag vertically (or use arrow keys when focused).
-- Console: open DevTools to see AudioContext state, note on/off, and parameter changes.
+See `MINI-DAW-PLAN.md` for full decisions.
 
 ---
 
 ## License
 
-MIT – use freely, attribution appreciated but not required.
+MIT
