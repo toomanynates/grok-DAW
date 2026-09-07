@@ -121,6 +121,38 @@
   </section>
 
   <!-- ========================================================================
+       TRANSPORT – Chunk 2: record / play a single clip
+       ======================================================================== -->
+  <section class="section section--transport">
+    <div class="container">
+      <div class="transport" id="transport">
+        <div class="transport__group">
+          <button type="button" class="transport__btn transport__btn--record" id="btn-record" title="Record">
+            <i class="fa-solid fa-circle"></i>
+            <span>Record</span>
+          </button>
+          <button type="button" class="transport__btn" id="btn-stop" title="Stop" disabled>
+            <i class="fa-solid fa-stop"></i>
+            <span>Stop</span>
+          </button>
+          <button type="button" class="transport__btn transport__btn--play" id="btn-play" title="Play clip" disabled>
+            <i class="fa-solid fa-play"></i>
+            <span>Play</span>
+          </button>
+          <button type="button" class="transport__btn" id="btn-clear" title="Clear clip" disabled>
+            <i class="fa-solid fa-trash"></i>
+            <span>Clear</span>
+          </button>
+        </div>
+        <div class="transport__status" id="transport-status">
+          <span class="transport__state" id="transport-state">Idle</span>
+          <span class="transport__meta" id="transport-meta">0 notes · 0.0s</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================
        KEYBOARD
        ======================================================================== -->
   <section class="section section--keyboard">
@@ -129,7 +161,8 @@
         <p class="keyboard__hint">
           Click keys or use computer keyboard ·
           <kbd>Z</kbd>/<kbd>X</kbd> octave ·
-          <kbd>Esc</kbd> kill all notes
+          <kbd>Esc</kbd> kill all notes ·
+          <kbd>R</kbd> record · <kbd>Space</kbd> play/stop
         </p>
 
         <!-- Size selector -->
@@ -150,11 +183,13 @@
     </div>
   </section>
 
-  <!-- Scripts: bind → mono-synth → keyboard → controls → main -->
+  <!-- Scripts: bind → mono-synth → clip-recorder → keyboard → controls → transport → main -->
   <script src="js/bind.js"></script>
   <script src="js/mono-synth.js"></script>
+  <script src="js/clip-recorder.js"></script>
   <script src="js/keyboard.js"></script>
   <script src="js/controls.js"></script>
+  <script src="js/transport.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

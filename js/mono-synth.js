@@ -90,15 +90,29 @@ const MonoSynthEngine = (function () {
     console.log("[MonoSynth] noteOff");
   }
 
+  /**
+   * Schedule a note with duration (used by clip playback).
+   * @param {number} midi
+   * @param {number} duration seconds
+   * @param {number} [time] Tone audio time (default now)
+   * @param {number} [velocity]
+   */
+  function triggerAttackRelease(midi, duration, time, velocity = 0.85) {
+    if (!synth) return;
+    const note = Tone.Frequency(midi, "midi").toNote();
+    const t = time !== undefined ? time : Tone.now();
+    synth.triggerAttackRelease(note, duration, t, velocity);
+  }
+
   /** Panic – release immediately */
   function allNotesOff() {
     if (!synth) return;
     // MonoSynth only holds one voice; release + silence
-    synth.triggerRelease(Tone.now());
-    // Hard cut residual gain if any
-    const now = Tone.now();
-    synth.volume.cancelScheduledValues(now);
-    synth.volume.setValueAtTime(synth.volume.value, now);
+    try {
+      synth.triggerRelease(Tone.now());
+    } catch (e) {
+      // ignore
+    }
     console.log("[MonoSynth] allNotesOff");
   }
 
@@ -222,6 +236,7 @@ const MonoSynthEngine = (function () {
     unlock,
     noteOn,
     noteOff,
+    triggerAttackRelease,
     allNotesOff,
     setOscType,
     setFilterFreq,

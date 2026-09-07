@@ -173,6 +173,11 @@ const KeyboardUI = (function () {
     const name = MonoSynthEngine.noteOn(midi);
     activeNoteName = name || Tone.Frequency(midi, "midi").toNote();
     updateActiveNoteDisplay();
+
+    // Feed recorder when armed (Chunk 2)
+    if (typeof ClipRecorder !== "undefined") {
+      ClipRecorder.noteOn(midi, 0.85);
+    }
   }
 
   function release(midi) {
@@ -187,6 +192,10 @@ const KeyboardUI = (function () {
       activeNoteName = "—";
       updateActiveNoteDisplay();
     }
+
+    if (typeof ClipRecorder !== "undefined") {
+      ClipRecorder.noteOff(midi);
+    }
   }
 
   function panic() {
@@ -199,6 +208,10 @@ const KeyboardUI = (function () {
     MonoSynthEngine.allNotesOff();
     activeNoteName = "—";
     updateActiveNoteDisplay();
+
+    if (typeof ClipRecorder !== "undefined") {
+      ClipRecorder.onPanic();
+    }
   }
 
   function updateActiveNoteDisplay() {

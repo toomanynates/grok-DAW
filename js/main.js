@@ -48,6 +48,7 @@
     // UI first (no audio yet)
     ControlsUI.init();
     KeyboardUI.init();
+    TransportUI.init();
     setStatus(false);
 
     if (startBtn) {
