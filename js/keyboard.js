@@ -234,11 +234,7 @@ const KeyboardUI = (function () {
     n = Number(n);
     if (![1, 2, 4, 88].includes(n)) return;
 
-    if ((n === 4 || n === 88) && isSmallScreen()) {
-      showSizeMessage(true);
-      console.log("[KeyboardUI] size", n, "blocked on small screen");
-      return;
-    }
+    // All sizes allowed; keyboard__scroll handles overflow on small screens
     showSizeMessage(false);
 
     octaveCount = n;
@@ -256,17 +252,12 @@ const KeyboardUI = (function () {
   }
 
   function updateSizeButtonStates() {
-    const small = isSmallScreen();
+    // No longer disable 4 / 88 on small screens — horizontal scroll is available
     document.querySelectorAll(".kb-size__btn").forEach((btn) => {
-      const n = Number(btn.dataset.octaves);
-      const blocked = small && (n === 4 || n === 88);
-      btn.classList.toggle("kb-size__btn--disabled", blocked);
-      btn.disabled = blocked;
+      btn.classList.remove("kb-size__btn--disabled");
+      btn.disabled = false;
     });
-    // If current size became invalid, fall back to 2
-    if (small && (octaveCount === 4 || octaveCount === 88)) {
-      setOctaveCount(2);
-    }
+    showSizeMessage(false);
   }
 
   function changeOctave(delta) {

@@ -1,7 +1,11 @@
 /**
  * transport.js
- * Chunk 2 UI for Record / Stop / Play / Clear and status display.
- * Keyboard shortcuts: R = toggle record, Space = play/stop (when not typing).
+ * Chunk 2.5 – Record / Stop / Play / Delete + multi-take strip.
+ *
+ * ‹ › select previous / next take (not page).
+ * Take list stays on one horizontal line (scroll if needed).
+ *
+ * Shortcuts: R = toggle record, Space = play/stop selected take.
  */
 
 const TransportUI = (function () {
@@ -10,18 +14,30 @@ const TransportUI = (function () {
   let btnRecord;
   let btnStop;
   let btnPlay;
-  let btnClear;
+  let btnDelete;
+  let btnRename;
+  let btnPrev;
+  let btnNext;
+  let takesList;
   let stateEl;
   let metaEl;
 
   function updateUI(summary) {
     if (!summary) summary = ClipRecorder.getSummary();
 
-    const { state, noteCount, duration, hasClip } = summary;
+    const {
+      state,
+      takes,
+      selectedId,
+      noteCount,
+      duration,
+      hasClip,
+      takeCount
+    } = summary;
 
     if (stateEl) {
       const labels = {
-        idle: hasClip ? "Clip ready" : "Idle",
+        idle: takeCount ? "Ready" : "Idle",
         recording: "Recording…",
         playing: "Playing…"
       };
@@ -30,7 +46,13 @@ const TransportUI = (function () {
     }
 
     if (metaEl) {
-      metaEl.textContent = `${noteCount} note${noteCount === 1 ? "" : "s"} · ${duration.toFixed(1)}s`;
+      if (state === "recording") {
+        metaEl.textContent = `${noteCount} notes · ${duration.toFixed(1)}s`;
+      } else if (selectedId) {
+        metaEl.textContent = `${takeCount} take${takeCount === 1 ? "" : "s"} · ${noteCount} notes · ${duration.toFixed(1)}s`;
+      } else {
+        metaEl.textContent = `${takeCount} take${takeCount === 1 ? "" : "s"}`;
+      }
     }
 
     if (btnRecord) {
@@ -39,16 +61,80 @@ const TransportUI = (function () {
       const label = btnRecord.querySelector("span");
       if (label) label.textContent = state === "recording" ? "Recording" : "Record";
     }
-    if (btnStop) {
-      btnStop.disabled = state === "idle";
-    }
+    if (btnStop) btnStop.disabled = state === "idle";
     if (btnPlay) {
       btnPlay.disabled = !hasClip || state === "recording";
       btnPlay.classList.toggle("transport__btn--active", state === "playing");
     }
-    if (btnClear) {
-      btnClear.disabled = (!hasClip && noteCount === 0) || state === "recording";
+    if (btnDelete) {
+      btnDelete.disabled = !selectedId || state === "recording" || state === "playing";
     }
+    if (btnRename) {
+      btnRename.disabled = !selectedId || state === "recording" || state === "playing";
+    }
+
+    renderTakes(takes, selectedId, state);
+  }
+
+  function renderTakes(takes, selectedId, state) {
+    if (!takesList) return;
+
+    takesList.innerHTML = "";
+
+    if (!takes.length) {
+      const empty = document.createElement("span");
+      empty.className = "takes__empty";
+      empty.textContent = "—";
+      takesList.appendChild(empty);
+    } else {
+      takes.forEach((t) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "takes__chip";
+        btn.setAttribute("role", "option");
+        btn.dataset.id = t.id;
+        btn.textContent = t.name;
+        btn.title = `${t.duration.toFixed(1)}s · ${t.noteCount} note${t.noteCount === 1 ? "" : "s"}`;
+        btn.setAttribute("aria-selected", t.id === selectedId ? "true" : "false");
+        if (t.id === selectedId) btn.classList.add("takes__chip--selected");
+        if (state === "recording") {
+          btn.disabled = true;
+          btn.classList.add("takes__chip--locked");
+        }
+        btn.addEventListener("click", () => ClipRecorder.selectTake(t.id));
+        takesList.appendChild(btn);
+      });
+
+      // Scroll selected chip into view (same row, no layout jump)
+      requestAnimationFrame(() => {
+        const sel = takesList.querySelector(".takes__chip--selected");
+        if (sel && typeof sel.scrollIntoView === "function") {
+          sel.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
+        }
+      });
+    }
+
+    // ‹ › = previous / next take in the list
+    const idx = takes.findIndex((t) => t.id === selectedId);
+    const locked = state === "recording";
+    if (btnPrev) {
+      btnPrev.disabled = locked || idx <= 0 || takes.length === 0;
+    }
+    if (btnNext) {
+      btnNext.disabled = locked || idx < 0 || idx >= takes.length - 1;
+    }
+  }
+
+  function selectRelative(delta) {
+    if (ClipRecorder.getState() === "recording") return;
+    const summary = ClipRecorder.getSummary();
+    const { takes, selectedId } = summary;
+    if (!takes.length) return;
+
+    let idx = takes.findIndex((t) => t.id === selectedId);
+    if (idx < 0) idx = 0;
+    const next = Math.max(0, Math.min(takes.length - 1, idx + delta));
+    if (takes[next]) ClipRecorder.selectTake(takes[next].id);
   }
 
   function onRecord() {
@@ -56,8 +142,7 @@ const TransportUI = (function () {
       console.warn("[TransportUI] audio not ready");
       return;
     }
-    const s = ClipRecorder.getState();
-    if (s === "recording") {
+    if (ClipRecorder.getState() === "recording") {
       ClipRecorder.stopRecording();
     } else {
       ClipRecorder.startRecording();
@@ -72,21 +157,32 @@ const TransportUI = (function () {
 
   function onPlay() {
     if (!MonoSynthEngine.isReady()) return;
-    const s = ClipRecorder.getState();
-    if (s === "playing") {
+    if (ClipRecorder.getState() === "playing") {
       ClipRecorder.stopPlayback();
     } else {
       ClipRecorder.playClip();
     }
   }
 
-  function onClear() {
-    ClipRecorder.clearClip();
+  function onDelete() {
+    const summary = ClipRecorder.getSummary();
+    if (!summary.selectedId) return;
+    const name = summary.selectedName || "this take";
+    if (!window.confirm(`Delete ${name}?`)) return;
+    ClipRecorder.deleteSelected();
+  }
+
+  function onRename() {
+    const summary = ClipRecorder.getSummary();
+    if (!summary.selectedId) return;
+    const current = summary.selectedName || "";
+    const next = window.prompt("Rename take:", current);
+    if (next === null) return;
+    ClipRecorder.renameSelected(next);
   }
 
   function bindShortcuts() {
     window.addEventListener("keydown", (e) => {
-      // Ignore when focus is on inputs (future-proof)
       const tag = (e.target && e.target.tagName) || "";
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
@@ -95,9 +191,7 @@ const TransportUI = (function () {
         onPlay();
         return;
       }
-      if (e.key === "r" || e.key === "R") {
-        // Don't steal R if modifier keys are held
-        if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if ((e.key === "r" || e.key === "R") && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         onRecord();
       }
@@ -108,24 +202,28 @@ const TransportUI = (function () {
     btnRecord = document.getElementById("btn-record");
     btnStop = document.getElementById("btn-stop");
     btnPlay = document.getElementById("btn-play");
-    btnClear = document.getElementById("btn-clear");
+    btnDelete = document.getElementById("btn-delete");
+    btnRename = document.getElementById("btn-rename");
+    btnPrev = document.getElementById("takes-prev");
+    btnNext = document.getElementById("takes-next");
+    takesList = document.getElementById("takes-list");
     stateEl = document.getElementById("transport-state");
     metaEl = document.getElementById("transport-meta");
 
     if (btnRecord) btnRecord.addEventListener("click", onRecord);
     if (btnStop) btnStop.addEventListener("click", onStop);
     if (btnPlay) btnPlay.addEventListener("click", onPlay);
-    if (btnClear) btnClear.addEventListener("click", onClear);
+    if (btnDelete) btnDelete.addEventListener("click", onDelete);
+    if (btnRename) btnRename.addEventListener("click", onRename);
+    if (btnPrev) btnPrev.addEventListener("click", () => selectRelative(-1));
+    if (btnNext) btnNext.addEventListener("click", () => selectRelative(1));
 
     ClipRecorder.setOnChange(updateUI);
     bindShortcuts();
     updateUI();
 
-    console.log("[TransportUI] initialized");
+    console.log("[TransportUI] initialized (prev/next take)");
   }
 
-  return {
-    init,
-    updateUI
-  };
+  return { init, updateUI };
 })();
